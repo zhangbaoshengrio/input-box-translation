@@ -133,7 +133,8 @@
                 android:id="@+id/apiKey"
                 style="@style/Field"
                 android:hint="sk-…"
-                android:inputType="textPassword" />
+                android:inputType="textPassword"
+                android:selectAllOnFocus="true" />
 
             <TextView style="@style/Label" android:text="Model" />
             <EditText

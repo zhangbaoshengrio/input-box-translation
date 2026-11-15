@@ -25,7 +25,7 @@ public class MainActivity extends Activity {
     private TextView status, statusHint, result, chipDeepseek, chipOpenai, chipCustom;
     private EditText baseUrl, apiKey, model, lang;
     private Button btnTest, btnSave;
-    private boolean hasSavedKey;
+    private String maskText = ""; // dots shown in the key box when a key is saved
 
     @Override
     protected void onCreate(Bundle b) {
@@ -118,15 +118,29 @@ public class MainActivity extends Activity {
         baseUrl.setText(p.getString("base_url", DEEPSEEK_URL));
         model.setText(p.getString("model", DEEPSEEK_MODEL));
         lang.setText(p.getString("target_lang", "English"));
-        hasSavedKey = !p.getString("api_key", "").isEmpty();
-        apiKey.setText("");
-        apiKey.setHint(hasSavedKey ? "Saved · leave blank to keep" : "sk-…");
+        showMask(p.getString("api_key", ""));
         syncChips();
     }
 
+    /** Fill the key box with one dot per saved character (never the real key). */
+    private void showMask(String savedKey) {
+        if (savedKey.isEmpty()) {
+            maskText = "";
+            apiKey.setText("");
+            apiKey.setHint("sk-…");
+        } else {
+            maskText = "•".repeat(Math.min(savedKey.length(), 40));
+            apiKey.setText(maskText);
+        }
+    }
+
+    private boolean keyUnchanged() {
+        String typed = apiKey.getText().toString();
+        return typed.isEmpty() || typed.equals(maskText);
+    }
+
     private String effectiveKey() {
-        String typed = apiKey.getText().toString().trim();
-        if (!typed.isEmpty()) return typed;
+        if (!keyUnchanged()) return apiKey.getText().toString().trim();
         XposedService s = service;
         return s == null ? "" : s.getRemotePreferences("config").getString("api_key", "");
     }
@@ -140,7 +154,9 @@ public class MainActivity extends Activity {
     private void testConnection() {
         final String key = effectiveKey();
         if (key.isEmpty()) {
-            showResult(false, "Enter an API key first.");
+            showResult(false, service == null && !maskText.isEmpty()
+                    ? "Not connected to LSPosed, so the saved key can't be read. Retype it to test."
+                    : "Enter an API key first.");
             return;
         }
         final String base = baseUrl.getText().toString(), m = model.getText().toString();
@@ -177,14 +193,12 @@ public class MainActivity extends Activity {
                 .putString("base_url", baseUrl.getText().toString().trim())
                 .putString("model", model.getText().toString().trim())
                 .putString("target_lang", lang.getText().toString().trim());
+        boolean changed = !keyUnchanged();
         String key = apiKey.getText().toString().trim();
-        if (!key.isEmpty()) e.putString("api_key", key); // blank keeps the saved key
+        if (changed) e.putString("api_key", key); // dots or blank keep the saved key
         e.apply();
-        if (!key.isEmpty()) {
-            hasSavedKey = true;
-            apiKey.setText("");
-            apiKey.setHint("Saved · leave blank to keep");
-        }
+        if (changed) showMask(key);
+        apiKey.clearFocus();
         Toast.makeText(this, "Saved", Toast.LENGTH_SHORT).show();
     }
 }
