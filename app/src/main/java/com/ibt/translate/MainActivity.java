@@ -2,7 +2,11 @@ package com.ibt.translate;
 
 import android.app.Activity;
 import android.content.SharedPreferences;
+import android.content.Intent;
 import android.graphics.Insets;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.Process;
 import android.os.Bundle;
 import android.view.View;
 import android.view.WindowInsets;
@@ -25,12 +29,15 @@ public class MainActivity extends Activity {
     private TextView status, statusHint, result, chipDeepseek, chipOpenai, chipCustom;
     private EditText baseUrl, apiKey, model, lang;
     private Button btnTest, btnSave;
+    private final Handler handler = new Handler(Looper.getMainLooper());
+    private boolean canRetry; // restart at most once per start, so a disabled module can't loop
     private String maskText = ""; // dots shown in the key box when a key is saved
 
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
         setContentView(R.layout.activity_main);
+        canRetry = !getIntent().getBooleanExtra("retried", false);
         View scroll = findViewById(R.id.scroll);
         scroll.setOnApplyWindowInsetsListener((v, insets) -> {
             Insets bars = insets.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.ime());
@@ -71,13 +78,37 @@ public class MainActivity extends Activity {
         XposedServiceHelper.registerListener(new XposedServiceHelper.OnServiceListener() {
             @Override public void onServiceBind(XposedService s) {
                 service = s;
-                runOnUiThread(() -> { setConnected(true); load(); });
+                runOnUiThread(() -> { canRetry = true; setConnected(true); load(); });
             }
             @Override public void onServiceDied(XposedService s) {
                 service = null;
-                runOnUiThread(() -> setConnected(false));
+                runOnUiThread(() -> { setConnected(false); scheduleCheck(); });
             }
         });
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (service == null) scheduleCheck();
+    }
+
+    @Override
+    protected void onPause() {
+        handler.removeCallbacksAndMessages(null);
+        super.onPause();
+    }
+
+    /** LSPosed only connects at process start, so a dead link is fixed by restarting once. */
+    private void scheduleCheck() {
+        handler.removeCallbacksAndMessages(null);
+        handler.postDelayed(() -> {
+            if (service != null || !canRetry || isFinishing()) return;
+            canRetry = false;
+            startActivity(new Intent(this, RestartActivity.class)
+                    .putExtra("pid", Process.myPid())
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        }, 2000);
     }
 
     private void setConnected(boolean ok) {
