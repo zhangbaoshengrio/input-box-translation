@@ -11,7 +11,7 @@ Type `你好世界`, tap Space three times, and the box now says `Hello world`.
 
 ## Install
 
-1. Download `input-box-translate-1.0.0.apk` from the [Releases](../../releases) page and install it.
+1. Download the latest `input-box-translate-*.apk` from the [Releases](../../releases) page and install it.
 2. Open LSPosed, go to Modules, and enable **Input Box Translate**.
 3. Tick the apps you want it to work in (see below), then force-stop those apps.
 4. Open **Input Box Translate**. It should say **Connected · LSPosed**. If it says Not connected, force-stop it and open it again.
