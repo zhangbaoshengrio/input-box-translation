@@ -225,7 +225,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
                 android:lineSpacingMultiplier="1.2"
-                android:text="WhatsApp · WeChat · Edge · Claude · Gemini (Google app)"
+                android:text="WhatsApp · WeChat · Edge · Claude · Gemini (Google app) · ChatGPT"
                 android:textColor="@color/text2"
                 android:textSize="13sp" />
         </LinearLayout>
@@ -235,7 +235,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
             android:gravity="center"
-            android:text="v1.0.1"
+            android:text="v1.0.2"
             android:textColor="@color/text2"
             android:textSize="12sp" />
     </LinearLayout>

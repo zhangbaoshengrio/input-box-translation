@@ -26,6 +26,7 @@ In an enabled app, type some text and press Space 3 times within about 0.7 secon
 - WhatsApp
 - WeChat
 - Claude (`com.anthropic.claude`)
+- ChatGPT (`com.openai.chatgpt`)
 - Gemini (needs both `com.google.android.apps.bard` and the Google app `com.google.android.googlequicksearchbox` enabled)
 - Edge (`com.microsoft.emmx`): address bar; web page fields are untested
 
