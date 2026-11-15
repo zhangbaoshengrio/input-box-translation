@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <!-- input box -->
+    <path android:fillColor="#FFFFFF"
+        android:pathData="M36,38 H72 A14,14 0 0 1 86,52 V56 A14,14 0 0 1 72,70 H36 A14,14 0 0 1 22,56 V52 A14,14 0 0 1 36,38 Z" />
+    <!-- three space dots -->
+    <path android:fillColor="#5B4CF0"
+        android:pathData="M34.2,54 a3.2,3.2 0 1,0 6.4,0 a3.2,3.2 0 1,0 -6.4,0 Z" />
+    <path android:fillColor="#7C6CFF"
+        android:pathData="M45.8,54 a3.2,3.2 0 1,0 6.4,0 a3.2,3.2 0 1,0 -6.4,0 Z" />
+    <path android:fillColor="#A08CFF"
+        android:pathData="M57.4,54 a3.2,3.2 0 1,0 6.4,0 a3.2,3.2 0 1,0 -6.4,0 Z" />
+    <!-- arrow -->
+    <path android:fillColor="#5B4CF0"
+        android:pathData="M67,52.4 H72 V49.2 L79.5,54 L72,58.8 V55.6 H67 Z" />
+</vector>
