@@ -4,6 +4,8 @@ Press **Space 3 times quickly** in any chat box and the whole text you typed is 
 
 Type `你好世界`, tap Space three times, and the box now says `Hello world`.
 
+**Download:** the latest APK is on the [Releases](../../releases) page.
+
 ## Requirements
 
 - A rooted Android phone with LSPosed (Zygisk). Tested on Android 16 with KernelSU and LSPosed 2.2.0.
@@ -23,14 +25,22 @@ In an enabled app, type some text and press Space 3 times within about 0.7 secon
 
 ## Apps tested
 
-- WhatsApp
-- WeChat
+- WhatsApp (`com.whatsapp`)
+- WeChat (`com.tencent.mm`)
 - Claude (`com.anthropic.claude`)
 - ChatGPT (`com.openai.chatgpt`)
 - Gemini (needs both `com.google.android.apps.bard` and the Google app `com.google.android.googlequicksearchbox` enabled)
 - Edge (`com.microsoft.emmx`): address bar; web page fields are untested
 
 Any other app can be added in LSPosed's scope for this module.
+
+## Troubleshooting
+
+- **The module app says "Not connected to LSPosed".** LSPosed connects the module app only when its process starts, and some phones freeze background apps, which drops the link. The app now restarts itself once to reconnect. If it still shows red, check that the module is enabled in LSPosed, then force-stop the module app and open it again. This only affects the settings screen; translation inside other apps keeps working.
+- **Nothing happens when I press Space 3 times.** Check that the app is ticked in the module's LSPosed scope, then force-stop that app and reopen it. Press the spaces within about 0.7 seconds, and make sure the box is not empty.
+- **"Translate failed" toast.** Open the module app and tap **Test** to see the exact error from the API (wrong key, wrong Base URL, wrong model name, or no network).
+- **Gemini does nothing.** Tick both `com.google.android.apps.bard` and `com.google.android.googlequicksearchbox` in the scope.
+- **Adding another app.** Tick it in the module's scope in LSPosed and force-stop it. Apps that draw their own text fields may not work.
 
 ## Settings
 
