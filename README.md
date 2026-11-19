@@ -23,6 +23,10 @@ Type `你好世界`, tap Space three times, and the box now says `Hello world`.
 
 In an enabled app, type some text and press Space 3 times within about 0.7 seconds. A "Translating…" toast appears and the text box is replaced with the translation. If the request fails, your text is left exactly as it was.
 
+## Keyboard mode (Doubao IME)
+
+Instead of ticking apps, you can tick the keyboard: enable **Doubao IME** (`com.bytedance.android.doubaoime`) in the module's LSPosed scope and untick the apps. The hook then runs inside the keyboard, so Space 3 times translates in every app. Use either the keyboard or the apps, not both, or the text is translated twice. The "翻译中…" toast may not show in this mode.
+
 ## Apps tested
 
 - WhatsApp (`com.whatsapp`)

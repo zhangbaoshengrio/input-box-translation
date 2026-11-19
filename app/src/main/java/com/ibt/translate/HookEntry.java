@@ -3,6 +3,7 @@ package com.ibt.translate;
 import android.content.SharedPreferences;
 import android.os.Handler;
 import android.os.Looper;
+import android.view.KeyEvent;
 import android.view.inputmethod.InputConnection;
 import android.widget.Toast;
 
@@ -20,6 +21,7 @@ import java.util.Set;
  */
 public class HookEntry extends XposedModule {
     private static final String TAG = "IBT";
+    private static final String IME_PKG = "com.bytedance.android.doubaoime";
     private static final long WINDOW_MS = 700;
     private static final int MAX_CTX = 4000;
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
@@ -35,6 +37,10 @@ public class HookEntry extends XposedModule {
     public void onPackageReady(XposedModuleInterface.PackageReadyParam param) {
         if (!param.isFirstPackage()) return;
         log(android.util.Log.INFO, TAG, "loaded into " + param.getPackageName());
+        if (IME_PKG.equals(param.getPackageName())) {
+            hookIme();
+            return;
+        }
         try {
             hookClass(android.view.inputmethod.BaseInputConnection.class);
         } catch (Throwable t) {
@@ -67,6 +73,68 @@ public class HookEntry extends XposedModule {
         }
     }
 
+    /**
+     * Keyboard-side mode: runs inside the input method's own process, so it works in every app
+     * without ticking them. The keyboard talks to the focused app through the InputConnection
+     * returned by InputMethodService.getCurrentInputConnection(); we hook that connection.
+     */
+    private void hookIme() {
+        try {
+            Method gic = android.inputmethodservice.InputMethodService.class
+                    .getDeclaredMethod("getCurrentInputConnection");
+            hook(gic).intercept(chain -> {
+                Object ic = chain.proceed();
+                if (ic != null) {
+                    try {
+                        hookImeClass(ic.getClass());
+                    } catch (Throwable t) {
+                        log(android.util.Log.WARN, TAG, "ime class hook failed", t);
+                    }
+                }
+                return ic;
+            });
+            log(android.util.Log.INFO, TAG, "ime mode ready");
+        } catch (Throwable t) {
+            log(android.util.Log.ERROR, TAG, "ime hook failed", t);
+        }
+    }
+
+    private void hookImeClass(Class<?> c) throws Exception {
+        Method commit = c.getMethod("commitText", CharSequence.class, int.class);
+        Method key = c.getMethod("sendKeyEvent", KeyEvent.class);
+        synchronized (hooked) {
+            if (!hooked.add(commit)) return;
+            hooked.add(key);
+        }
+        log(android.util.Log.INFO, TAG, "ime hooking " + c.getName());
+        hook(commit).intercept(chain -> {
+            Object r = chain.proceed();
+            if (!replacing) {
+                try {
+                    onText((InputConnection) chain.getThisObject(), (CharSequence) chain.getArg(0));
+                } catch (Throwable t) {
+                    log(android.util.Log.WARN, TAG, "ime commit failed", t);
+                }
+            }
+            return r;
+        });
+        hook(key).intercept(chain -> {
+            Object r = chain.proceed();
+            if (!replacing) {
+                try {
+                    KeyEvent e = (KeyEvent) chain.getArg(0);
+                    if (e.getAction() == KeyEvent.ACTION_DOWN) {
+                        onText((InputConnection) chain.getThisObject(),
+                                e.getKeyCode() == KeyEvent.KEYCODE_SPACE ? " " : "");
+                    }
+                } catch (Throwable t) {
+                    log(android.util.Log.WARN, TAG, "ime key failed", t);
+                }
+            }
+            return r;
+        });
+    }
+
     private void hookClass(Class<?> c) throws Exception {
         Method m = c.getMethod("commitText", CharSequence.class, int.class);
         synchronized (hooked) {
@@ -79,9 +147,9 @@ public class HookEntry extends XposedModule {
             try {
                 Object r = chain.proceed();
                 try {
-                    onCommit((InputConnection) chain.getThisObject(), (CharSequence) chain.getArg(0));
+                    onText((InputConnection) chain.getThisObject(), (CharSequence) chain.getArg(0));
                 } catch (Throwable t) {
-                    log(android.util.Log.WARN, TAG, "onCommit failed", t);
+                    log(android.util.Log.WARN, TAG, "onText failed", t);
                 }
                 return r;
             } finally {
@@ -90,7 +158,7 @@ public class HookEntry extends XposedModule {
         });
     }
 
-    private void onCommit(InputConnection ic, CharSequence committed) {
+    private void onText(InputConnection ic, CharSequence committed) {
         if (committed == null || !committed.toString().equals(" ")) {
             idx = 0;
             stamps[0] = stamps[1] = stamps[2] = 0;
@@ -110,6 +178,9 @@ public class HookEntry extends XposedModule {
     private void trigger(InputConnection ic) {
         CharSequence b = ic.getTextBeforeCursor(MAX_CTX, 0);
         CharSequence a = ic.getTextAfterCursor(MAX_CTX, 0);
+        log(android.util.Log.INFO, TAG, "trigger before=" + (b == null ? -1 : b.length())
+                + " after=" + (a == null ? -1 : a.length())
+                + " ends3=" + (b != null && b.toString().endsWith("   ")));
         if (b == null) return;
         String before = b.toString(), after = a == null ? "" : a.toString();
         if (!before.endsWith("   ")) return;
@@ -122,12 +193,12 @@ public class HookEntry extends XposedModule {
         String model = p.getString("model", "deepseek-chat");
         String lang = p.getString("target_lang", "English");
         if (key.isEmpty()) {
-            toast("IBT: set API key in the module app");
+            toast("请先在 Input Box Translate 里填写 API key");
             return;
         }
         busy = true;
         final String original = before + after;
-        toast("Translating…");
+        showProgress();
         new Thread(() -> {
             try {
                 String out = Translator.translate(base, key, model, lang, text);
@@ -145,14 +216,46 @@ public class HookEntry extends XposedModule {
                     } finally {
                         replacing = false;
                         busy = false;
+                        hideProgress();
                     }
                 });
             } catch (Throwable t) {
                 busy = false;
                 log(android.util.Log.WARN, TAG, "translate failed", t);
-                toast("Translate failed: " + t.getMessage());
+                hideProgress();
+                toast("翻译失败: " + t.getMessage());
             }
         }, "ibt-translate").start();
+    }
+
+    private static volatile Toast progress;
+    private static volatile long progressShownAt;
+    private static final long MIN_PROGRESS_MS = 1200;
+
+    /** "翻译中…" toast; on Android 12+ it carries the icon of the app it runs in (Doubao in IME mode). */
+    private static void showProgress() {
+        MAIN.post(() -> {
+            try {
+                android.content.Context c = (android.content.Context) Class.forName("android.app.ActivityThread")
+                        .getMethod("currentApplication").invoke(null);
+                if (c == null) return;
+                if (progress != null) progress.cancel();
+                progress = Toast.makeText(c, "翻译中…", Toast.LENGTH_LONG);
+                progress.show();
+                progressShownAt = System.currentTimeMillis();
+            } catch (Throwable ignored) {}
+        });
+    }
+
+    /** Hide the progress toast, but keep it up long enough to be read. */
+    private static void hideProgress() {
+        MAIN.post(() -> {
+            Toast t = progress;
+            if (t == null) return;
+            progress = null;
+            long wait = MIN_PROGRESS_MS - (System.currentTimeMillis() - progressShownAt);
+            MAIN.postDelayed(t::cancel, Math.max(0, wait));
+        });
     }
 
     private static void toast(String msg) {
